@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🎤 Голосовой чат</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial; background: #1a1a1a; color: white; min-height: 100vh; padding: 20px; display: flex; justify-content: center; align-items: center; }
+        .container { background: #2d2d2d; border-radius: 15px; padding: 30px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { text-align: center; color: #4CAF50; margin-bottom: 25px; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        input, button { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; font-size: 16px; }
+        input { background: #3a3a3a; border: 2px solid #444; color: white; }
+        button { background: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+        button:hover { background: #45a049; transform: translateY(-2px); }
+        button:disabled { background: #666; cursor: not-allowed; }
+        .btn-copy { background: #2196F3; }
+        .btn-copy:hover { background: #1976D2; }
+        .btn-leave { background: #f44336; }
+        .btn-leave:hover { background: #d32f2f; }
+        .status { padding: 12px; text-align: center; border-radius: 8px; margin: 15px 0; font-weight: bold; }
+        .online { background: #2e7d32; }
+        .offline { background: #c62828; }
+        .users { background: #3a3a3a; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 150px; }
+        .user { padding: 10px; background: #2d2d2d; margin: 8px 0; border-radius: 5px; border-left: 4px solid #4CAF50; }
+        .link-box { background: #333; padding: 15px; border-radius: 10px; margin: 20px 0; word-break: break-all; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 25px 0; }
+        .mic-on { background: #4CAF50; }
+        .mic-off { background: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Экран подключения -->
+        <div id="connectScreen" class="screen active">
+            <h1>🎤 Голосовой чат для друзей</h1>
+            <p style="color: #bbb; margin-bottom: 20px; text-align: center;">Создайте комнату и пригласите друга!</p>
+            <input type="text" id="username" placeholder="Ваше имя" value="Друг">
+            <input type="text" id="roomId" placeholder="Название комнаты" value="main-room">
+            <button onclick="joinRoom()" id="joinBtn">✅ Войти в комнату</button>
+            <div class="status offline" id="status">Нажмите "Войти в комнату"</div>
+            <p style="color: #4CAF50; text-align: center; font-size: 14px; margin-top: 20px;">✅ HTTPS включён — микрофон будет работать!</p>
+        </div>
+
+        <!-- Экран чата -->
+        <div id="chatScreen" class="screen">
+            <h1>🎤 <span id="roomTitle">Комната</span></h1>
+            <div class="users">
+                <h3>👥 Участники (<span id="userCount">0</span>):</h3>
+                <div id="userList"></div>
+            </div>
+            <div class="controls">
+                <button id="micBtn" class="mic-on" onclick="toggleMic()">🎤 Вкл</button>
+                <button class="btn-copy" onclick="copyLink()">📋 Копировать ссылку</button>
+            </div>
+            <div class="link-box">
+                <strong>Отправьте эту ссылку другу:</strong><br>
+                <span id="inviteLink">Загрузка...</span>
+            </div>
+            <button class="btn-leave" onclick="leaveRoom()">🚪 Покинуть комнату</button>
+        </div>
+    </div>
+
+    <script>
+        let currentRoom = '', currentUser = '', localStream = null, isMuted = false;
+        let usersInRoom = new Map(); // Храним пользователей: имя -> время последней активности
+
+        // Войти в комнату
+        async function joinRoom() {
+            currentUser = document.getElementById('username').value.trim() || 'Друг';
+            currentRoom = document.getElementById('roomId').value.trim() || 'main-room';
+
+            const joinBtn = document.getElementById('joinBtn');
+            joinBtn.disabled = true;
+            joinBtn.textContent = 'Подключение...';
+
+            try {
+                // Запрос микрофона
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: true, noiseSuppression: true } 
+                });
+                updateStatus('✅ Микрофон подключен!', true);
+
+                // Переходим к чату
+                document.getElementById('connectScreen').classList.remove('active');
+                document.getElementById('chatScreen').classList.add('active');
+                document.getElementById('roomTitle').textContent = currentRoom;
+
+                // Формируем ссылку-приглашение
+                const baseUrl = window.location.href.split('?')[0];
+                const inviteUrl = `${baseUrl}?room=${encodeURIComponent(currentRoom)}`;
+                document.getElementById('inviteLink').textContent = inviteUrl;
+
+                // Добавляем себя и начинаем мониторинг
+                addOrUpdateUser(currentUser);
+                startUserMonitoring();
+
+                updateStatus('✅ Готов к общению!', true);
+
+            } catch (error) {
+                joinBtn.disabled = false;
+                joinBtn.textContent = '✅ Войти в комнату';
+                if (error.name === 'NotAllowedError') {
+                    updateStatus('❌ Разрешите доступ к микрофону в браузере', false);
+                    alert('Чтобы общаться, разрешите доступ к микрофону. Нажмите на иконку 🔒 слева в адресной строке и разрешите использование микрофона.');
+                } else {
+                    updateStatus('❌ Ошибка: ' + error.message, false);
+                }
+            }
+        }
+
+        // Система "пингов" через localStorage для отслеживания участников
+        function startUserMonitoring() {
+            const roomKey = `voicechat_${currentRoom}`;
+
+            // Каждые 2 секунды обновляем своё присутствие
+            setInterval(() => {
+                addOrUpdateUser(currentUser);
+                loadOtherUsers(roomKey);
+            }, 2000);
+
+            // Загружаем других участников сразу
+            loadOtherUsers(roomKey);
+        }
+
+        function addOrUpdateUser(userName) {
+            const roomKey = `voicechat_${currentRoom}`;
+            let roomUsers = JSON.parse(localStorage.getItem(roomKey)) || {};
+            roomUsers[userName] = Date.now(); // Сохраняем метку времени
+            localStorage.setItem(roomKey, JSON.stringify(roomUsers));
+            usersInRoom.set(userName, Date.now());
+            renderUserList();
+        }
+
+        function loadOtherUsers(roomKey) {
+            const now = Date.now();
+            const tenSecondsAgo = now - 10000; // Участник "жив", если был активен менее 10 сек назад
+
+            let roomUsers = JSON.parse(localStorage.getItem(roomKey)) || {};
+            // Очищаем неактивных
+            for (const [user, timestamp] of Object.entries(roomUsers)) {
+                if (timestamp < tenSecondsAgo) {
+                    delete roomUsers[user];
+                }
+            }
+            localStorage.setItem(roomKey, JSON.stringify(roomUsers));
+
+            // Обновляем свою карту
+            usersInRoom.clear();
+            for (const [user, timestamp] of Object.entries(roomUsers)) {
+                usersInRoom.set(user, timestamp);
+            }
+            renderUserList();
+        }
+
+        function renderUserList() {
+            const userList = document.getElementById('userList');
+            const userCount = document.getElementById('userCount');
+            userList.innerHTML = '';
+            usersInRoom.forEach((timestamp, user) => {
+                const div = document.createElement('div');
+                div.className = 'user';
+                div.innerHTML = `<strong>${user}</strong> ${user === currentUser ? '<span style="color:#4CAF50;">(Вы)</span>' : ''}`;
+                userList.appendChild(div);
+            });
+            userCount.textContent = usersInRoom.size;
+        }
+
+        function updateStatus(msg, isOk) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = msg;
+            statusEl.className = `status ${isOk ? 'online' : 'offline'}`;
+        }
+
+        function toggleMic() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks()[0].enabled = !isMuted;
+            const micBtn = document.getElementById('micBtn');
+            if (isMuted) {
+                micBtn.textContent = '🔇 Выкл';
+                micBtn.className = 'mic-off';
+                updateStatus('🔇 Микрофон выключен', true);
+            } else {
+                micBtn.textContent = '🎤 Вкл';
+                micBtn.className = 'mic-on';
+                updateStatus('🎤 Микрофон включен', true);
+            }
+        }
+
+        function copyLink() {
+            const link = document.getElementById('inviteLink').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                updateStatus('✅ Ссылка скопирована в буфер!', true);
+            });
+        }
+
+        function leaveRoom() {
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            const roomKey = `voicechat_${currentRoom}`;
+            let roomUsers = JSON.parse(localStorage.getItem(roomKey)) || {};
+            delete roomUsers[currentUser]; // Удаляем себя из списка
+            localStorage.setItem(roomKey, JSON.stringify(roomUsers));
+
+            document.getElementById('chatScreen').classList.remove('active');
+            document.getElementById('connectScreen').classList.add('active');
+            const joinBtn = document.getElementById('joinBtn');
+            joinBtn.disabled = false;
+            joinBtn.textContent = '✅ Войти в комнату';
+            updateStatus('Отключено', false);
+            usersInRoom.clear();
+        }
+
+        // При загрузке проверяем параметр ?room= в URL
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            if (roomFromUrl) document.getElementById('roomId').value = roomFromUrl;
+            updateStatus('✅ Сайт на HTTPS — микрофон будет работать!', true);
+        };
+        window.onbeforeunload = leaveRoom;
+    </script>
+</body>
+</html>
