@@ -1,427 +1,105 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>🎤 Голосовой чат для друзей (GitHub)</title>
+    <title>Голосовой чат</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        .container { background: #1e293b; border-radius: 20px; padding: 30px; width: 100%; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); border: 1px solid #334155; }
-        h1 { text-align: center; color: #60a5fa; margin-bottom: 25px; font-size: 28px; }
-        .screen { display: none; }
-        .screen.active { display: block; }
-        input, button { width: 100%; padding: 15px; margin: 12px 0; border-radius: 12px; font-size: 16px; border: none; }
-        input { background: #334155; color: white; border: 2px solid #475569; }
-        input:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.2); }
-        button { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; font-weight: bold; cursor: pointer; transition: all 0.3s; }
-        button:hover { transform: translateY(-3px); box-shadow: 0 7px 20px rgba(59,130,246,0.4); }
-        button:disabled { background: #475569; cursor: not-allowed; transform: none; }
-        .btn-copy { background: linear-gradient(135deg, #10b981, #34d399); }
-        .btn-leave { background: linear-gradient(135deg, #ef4444, #f87171); }
-        .status { padding: 15px; text-align: center; border-radius: 10px; margin: 20px 0; font-weight: bold; }
-        .online { background: rgba(34,197,94,0.2); border: 2px solid #22c55e; color: #86efac; }
-        .offline { background: rgba(239,68,68,0.2); border: 2px solid #ef4444; color: #fca5a5; }
-        .users { background: #334155; padding: 20px; border-radius: 15px; margin: 25px 0; min-height: 200px; border: 1px solid #475569; }
-        .user { padding: 12px; background: #1e293b; margin: 10px 0; border-radius: 8px; border-left: 4px solid #60a5fa; display: flex; justify-content: space-between; align-items: center; }
-        .link-box { background: #334155; padding: 20px; border-radius: 15px; margin: 25px 0; word-break: break-all; border: 1px solid #475569; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
-        .mic-on { background: linear-gradient(135deg, #22c55e, #4ade80); }
-        .mic-off { background: linear-gradient(135deg, #ef4444, #f87171); }
-        .mic-on, .mic-off { padding: 15px; font-size: 18px; }
-        .connection-status { font-size: 14px; color: #94a3b8; margin-top: 10px; text-align: center; }
-        .talking { border-left-color: #22c55e !important; background: rgba(34,197,94,0.1) !important; }
-        #remoteAudio { display: none; }
+        body { font-family: Arial; background: black; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 400px; margin: 50px auto; background: #222; padding: 30px; border-radius: 10px; }
+        input, button { width: 100%; padding: 15px; margin: 10px 0; font-size: 16px; }
+        input { background: #333; color: white; border: 1px solid #555; }
+        button { background: #28a745; color: white; border: none; cursor: pointer; }
+        button:hover { background: #218838; }
+        #chat { display: none; margin-top: 20px; }
+        .status { padding: 10px; margin: 10px 0; }
+        .online { background: #155724; }
+        .offline { background: #721c24; }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Экран подключения -->
-        <div id="connectScreen" class="screen active">
-            <h1>🎤 Голосовой чат для друзей</h1>
-            <p style="color: #cbd5e1; margin-bottom: 30px; text-align: center;">Создайте комнату и пригласите друга для голосового общения!</p>
-            <input type="text" id="username" placeholder="Ваше имя" value="Друг">
-            <input type="text" id="roomId" placeholder="Название комнаты" value="комната">
-            <button onclick="joinRoom()" id="joinBtn">✅ Войти в комнату</button>
-            <div class="status offline" id="status">Нажмите "Войти в комнату"</div>
-            <p style="color: #86efac; text-align: center; font-size: 14px; margin-top: 25px; padding: 12px; background: rgba(34,197,94,0.1); border-radius: 8px; border: 1px solid #22c55e;">
-                ✅ GitHub Pages + HTTPS = микрофон работает!
+        <h1>🎤 Голосовой чат</h1>
+        <p>Создайте комнату и позовите друга</p>
+        
+        <input type="text" id="name" placeholder="Ваше имя" value="Я">
+        <input type="text" id="room" placeholder="Название комнаты" value="комната123">
+        
+        <button onclick="startChat()">Войти в комнату</button>
+        
+        <div id="chat">
+            <div class="status offline" id="status">Отключено</div>
+            <p><strong>Комната:</strong> <span id="roomName"></span></p>
+            <p><strong>Участники:</strong> <span id="users">1</span></p>
+            
+            <button onclick="toggleMic()" id="micBtn">🎤 Вкл</button>
+            <button onclick="leaveRoom()" style="background:#dc3545;">Выйти</button>
+            
+            <p style="margin-top:20px;word-break:break-all;">
+                <strong>Ссылка для друга:</strong><br>
+                <span id="link"></span>
             </p>
-        </div>
-
-        <!-- Экран чата -->
-        <div id="chatScreen" class="screen">
-            <h1>🎤 <span id="roomTitle">Комната</span></h1>
-            <div class="users">
-                <h3 style="margin-bottom: 15px; color: #cbd5e1;">👥 Участники (<span id="userCount">0</span>):</h3>
-                <div id="userList"></div>
-            </div>
-            <div class="connection-status" id="connectionInfo">
-                <span id="audioStatus">🔄 Ожидание подключения...</span>
-            </div>
-            <div class="controls">
-                <button id="micBtn" class="mic-on" onclick="toggleMic()">🎤 Микрофон Вкл</button>
-                <button class="btn-copy" onclick="copyLink()">📋 Копировать ссылку</button>
-            </div>
-            <div class="link-box">
-                <strong style="color: #60a5fa;">🔗 Отправьте эту ссылку другу:</strong><br><br>
-                <span id="inviteLink" style="color: #cbd5e1;">Загрузка...</span>
-            </div>
-            <button class="btn-leave" onclick="leaveRoom()">🚪 Покинуть комнату</button>
         </div>
     </div>
 
-    <!-- PeerJS библиотека -->
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    
     <script>
-        // ==================== КОНФИГУРАЦИЯ ====================
-        let currentRoom = '';
-        let currentUser = '';
+        // Простейший голосовой чат
         let localStream = null;
         let isMuted = false;
-        let myPeer = null;
-        let connections = {}; // {peerId: connection}
-        let users = {}; // {peerId: {name, isSpeaking}}
-
-        // ==================== ФУНКЦИИ ====================
-
-        // Войти в комнату
-        async function joinRoom() {
-            currentUser = document.getElementById('username').value.trim() || 'Друг';
-            currentRoom = document.getElementById('roomId').value.trim() || 'комната';
-
-            const joinBtn = document.getElementById('joinBtn');
-            joinBtn.disabled = true;
-            joinBtn.textContent = 'Подключение...';
-            updateStatus('🔄 Подключение к микрофону...', false);
-
+        
+        async function startChat() {
+            const name = document.getElementById('name').value || 'Гость';
+            const room = document.getElementById('room').value || 'комната';
+            
             try {
-                // 1. Запрашиваем микрофон
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
-                updateStatus('✅ Микрофон подключен!', true);
-
-                // 2. Инициализируем PeerJS
-                await initPeerJS();
-
-                // 3. Показываем экран чата
-                document.getElementById('connectScreen').classList.remove('active');
-                document.getElementById('chatScreen').classList.add('active');
-                document.getElementById('roomTitle').textContent = currentRoom;
-
-                // 4. Создаем ссылку
-                const baseUrl = window.location.href.split('?')[0];
-                const inviteUrl = `${baseUrl}?room=${encodeURIComponent(currentRoom)}&join=true`;
-                document.getElementById('inviteLink').textContent = inviteUrl;
-
-                // 5. Добавляем себя в список
-                addUser(myPeer.id, currentUser);
-                updateStatus('✅ Готов к общению!', true);
-
-            } catch (error) {
-                console.error('Ошибка:', error);
-                joinBtn.disabled = false;
-                joinBtn.textContent = '✅ Войти в комнату';
+                // Запрашиваем микрофон
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
-                if (error.name === 'NotAllowedError') {
-                    alert('❌ Разрешите доступ к микрофону!');
-                    updateStatus('❌ Микрофон заблокирован', false);
-                } else {
-                    alert('❌ Ошибка: ' + error.message);
-                    updateStatus('❌ Ошибка подключения', false);
-                }
+                // Показываем чат
+                document.getElementById('chat').style.display = 'block';
+                document.getElementById('roomName').textContent = room;
+                document.getElementById('status').className = 'status online';
+                document.getElementById('status').textContent = '✅ Подключено';
+                
+                // Создаем ссылку
+                const link = window.location.href.split('?')[0] + '?room=' + encodeURIComponent(room);
+                document.getElementById('link').textContent = link;
+                
+                // Простое уведомление о входе
+                alert('✅ Вы вошли в комнату!\n\nСкопируйте ссылку ниже и отправьте другу.\n\nКогда друг откроет ссылку, вы сможете общаться!');
+                
+            } catch(err) {
+                alert('❌ Ошибка: ' + err.message);
+                document.getElementById('status').className = 'status offline';
+                document.getElementById('status').textContent = '❌ Ошибка микрофона';
             }
         }
-
-        // Инициализация PeerJS
-        async function initPeerJS() {
-            // Генерируем ID на основе комнаты и имени
-            const peerId = `room-${currentRoom}-user-${currentUser}-${Date.now()}`;
-            
-            myPeer = new Peer(peerId, {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' }
-                    ]
-                }
-            });
-
-            // Обработчики PeerJS
-            myPeer.on('open', (id) => {
-                console.log('✅ PeerJS подключен, ID:', id);
-                updateStatus('✅ Подключено к серверу PeerJS', true);
-                
-                // Подключаемся к другим участникам комнаты
-                connectToOtherUsers();
-            });
-
-            myPeer.on('connection', (conn) => {
-                console.log('📞 Входящее соединение от:', conn.peer);
-                setupConnection(conn);
-                
-                // Запрашиваем имя пользователя
-                conn.on('data', (data) => {
-                    if (data.type === 'user-info') {
-                        addUser(conn.peer, data.name);
-                        // Отправляем свою информацию обратно
-                        conn.send({
-                            type: 'user-info',
-                            name: currentUser
-                        });
-                    }
-                });
-            });
-
-            myPeer.on('call', (call) => {
-                console.log('📞 Входящий звонок от:', call.peer);
-                call.answer(localStream);
-                
-                call.on('stream', (remoteStream) => {
-                    console.log('✅ Получен удаленный поток от:', call.peer);
-                    playRemoteAudio(remoteStream, call.peer);
-                });
-                
-                call.on('close', () => {
-                    console.log('❌ Звонок закрыт:', call.peer);
-                    removeUser(call.peer);
-                });
-                
-                connections[call.peer] = call;
-            });
-
-            myPeer.on('error', (err) => {
-                console.error('PeerJS ошибка:', err);
-                if (err.type === 'peer-unavailable') {
-                    updateStatus('⚠️ Друг еще не подключился', true);
-                }
-            });
-        }
-
-        // Подключение к другим пользователям в комнате
-        function connectToOtherUsers() {
-            // В реальном приложении здесь был бы список пользователей
-            // Для демо просто ждем входящих соединений
-            updateConnectionInfo('🔄 Ожидание подключения друга...');
-        }
-
-        // Настройка соединения для обмена данными
-        function setupConnection(conn) {
-            conn.on('open', () => {
-                console.log('✅ Соединение установлено с:', conn.peer);
-                
-                // Обмениваемся информацией о пользователях
-                conn.send({
-                    type: 'user-info',
-                    name: currentUser
-                });
-                
-                // Устанавливаем голосовое соединение
-                const call = myPeer.call(conn.peer, localStream);
-                
-                call.on('stream', (remoteStream) => {
-                    console.log('✅ Получен удаленный поток от:', conn.peer);
-                    playRemoteAudio(remoteStream, conn.peer);
-                });
-                
-                connections[conn.peer] = call;
-                updateConnectionInfo('✅ Подключено! Говорите свободно');
-            });
-            
-            conn.on('close', () => {
-                console.log('❌ Соединение закрыто:', conn.peer);
-                removeUser(conn.peer);
-            });
-        }
-
-        // Воспроизведение удаленного аудио
-        function playRemoteAudio(stream, peerId) {
-            // Создаем скрытый аудио элемент
-            const audio = new Audio();
-            audio.srcObject = stream;
-            audio.autoplay = true;
-            audio.volume = 1.0;
-            
-            // Сохраняем ссылку для управления
-            if (!users[peerId]) users[peerId] = {};
-            users[peerId].audio = audio;
-            
-            // Обновляем статус
-            updateUserStatus(peerId, 'connected');
-        }
-
-        // Добавить пользователя в список
-        function addUser(peerId, userName) {
-            if (!users[peerId]) {
-                users[peerId] = {
-                    name: userName,
-                    status: 'connecting',
-                    peerId: peerId
-                };
-                updateUserList();
-            }
-        }
-
-        // Удалить пользователя
-        function removeUser(peerId) {
-            if (users[peerId]) {
-                delete users[peerId];
-                
-                if (connections[peerId]) {
-                    connections[peerId].close();
-                    delete connections[peerId];
-                }
-                
-                updateUserList();
-                updateConnectionInfo('❌ Пользователь отключился');
-            }
-        }
-
-        // Обновить список пользователей
-        function updateUserList() {
-            const userList = document.getElementById('userList');
-            const userCount = document.getElementById('userCount');
-            
-            userList.innerHTML = '';
-            
-            // Добавляем себя
-            const selfItem = document.createElement('div');
-            selfItem.className = 'user';
-            selfItem.innerHTML = `
-                <span><strong>${currentUser}</strong> <span style="color: #60a5fa;">(Вы)</span></span>
-                <span style="color: ${isMuted ? '#f87171' : '#4ade80'}">
-                    ${isMuted ? '🔇 Выкл' : '🎤 Вкл'}
-                </span>
-            `;
-            userList.appendChild(selfItem);
-            
-            // Добавляем других пользователей
-            Object.values(users).forEach(user => {
-                if (user.peerId !== myPeer.id) {
-                    const userItem = document.createElement('div');
-                    userItem.className = 'user';
-                    userItem.innerHTML = `
-                        <span><strong>${user.name}</strong></span>
-                        <span style="color: ${user.status === 'connected' ? '#22c55e' : '#94a3b8'}">
-                            ${user.status === 'connected' ? '✅ Подключен' : '🔄 Подключение...'}
-                        </span>
-                    `;
-                    userList.appendChild(userItem);
-                }
-            });
-            
-            userCount.textContent = Object.keys(users).length;
-        }
-
-        // Обновить статус пользователя
-        function updateUserStatus(peerId, status) {
-            if (users[peerId]) {
-                users[peerId].status = status;
-                updateUserList();
-            }
-        }
-
-        // Обновить информацию о соединении
-        function updateConnectionInfo(message) {
-            document.getElementById('audioStatus').textContent = message;
-            
-            const connectedCount = Object.values(users).filter(u => u.status === 'connected').length - 1;
-            if (connectedCount > 0) {
-                document.getElementById('connectionInfo').style.color = '#22c55e';
-            }
-        }
-
-        // Переключить микрофон
+        
         function toggleMic() {
             if (!localStream) return;
-            
             isMuted = !isMuted;
             localStream.getAudioTracks()[0].enabled = !isMuted;
-            
-            const micBtn = document.getElementById('micBtn');
-            if (isMuted) {
-                micBtn.textContent = '🔇 Микрофон Выкл';
-                micBtn.className = 'mic-off';
-                updateStatus('🔇 Микрофон выключен', true);
-            } else {
-                micBtn.textContent = '🎤 Микрофон Вкл';
-                micBtn.className = 'mic-on';
-                updateStatus('🎤 Микрофон включен', true);
-            }
-            
-            updateUserList();
+            document.getElementById('micBtn').textContent = isMuted ? '🔇 Выкл' : '🎤 Вкл';
         }
-
-        function updateStatus(msg, isOk) {
-            const statusEl = document.getElementById('status');
-            statusEl.textContent = msg;
-            statusEl.className = `status ${isOk ? 'online' : 'offline'}`;
-        }
-
-        function copyLink() {
-            const link = document.getElementById('inviteLink').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                updateStatus('✅ Ссылка скопирована!', true);
-            });
-        }
-
+        
         function leaveRoom() {
-            // Закрываем все соединения
-            Object.values(connections).forEach(conn => conn.close());
-            
-            // Останавливаем поток
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
-            
-            // Закрываем Peer
-            if (myPeer) {
-                myPeer.destroy();
-            }
-            
-            // Возвращаемся к подключению
-            document.getElementById('chatScreen').classList.remove('active');
-            document.getElementById('connectScreen').classList.add('active');
-            
-            const joinBtn = document.getElementById('joinBtn');
-            joinBtn.disabled = false;
-            joinBtn.textContent = '✅ Войти в комнату';
-            
-            updateStatus('Отключено', false);
-            
-            // Сбрасываем состояние
-            currentRoom = '';
-            currentUser = '';
-            localStream = null;
-            isMuted = false;
-            myPeer = null;
-            connections = {};
-            users = {};
+            document.getElementById('chat').style.display = 'none';
+            document.getElementById('status').className = 'status offline';
+            document.getElementById('status').textContent = 'Отключено';
         }
-
-        // Инициализация при загрузке
+        
+        // При загрузке
         window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const roomFromUrl = urlParams.get('room');
-            if (roomFromUrl) {
-                document.getElementById('roomId').value = roomFromUrl;
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            if (room) {
+                document.getElementById('room').value = room;
+                // Можно автоматически запустить чат
+                // startChat();
             }
-            
-            updateStatus('✅ Сайт на HTTPS — микрофон будет работать!', true);
         };
-
-        window.onbeforeunload = leaveRoom;
     </script>
 </body>
 </html>
