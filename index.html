@@ -1,105 +1,46 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Голосовой чат</title>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial; background: black; color: white; padding: 20px; text-align: center; }
-        .container { max-width: 400px; margin: 50px auto; background: #222; padding: 30px; border-radius: 10px; }
-        input, button { width: 100%; padding: 15px; margin: 10px 0; font-size: 16px; }
-        input { background: #333; color: white; border: 1px solid #555; }
-        button { background: #28a745; color: white; border: none; cursor: pointer; }
-        button:hover { background: #218838; }
-        #chat { display: none; margin-top: 20px; }
-        .status { padding: 10px; margin: 10px 0; }
-        .online { background: #155724; }
-        .offline { background: #721c24; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🎤 Голосовой чат</h1>
-        <p>Создайте комнату и позовите друга</p>
-        
-        <input type="text" id="name" placeholder="Ваше имя" value="Я">
-        <input type="text" id="room" placeholder="Название комнаты" value="комната123">
-        
-        <button onclick="startChat()">Войти в комнату</button>
-        
-        <div id="chat">
-            <div class="status offline" id="status">Отключено</div>
-            <p><strong>Комната:</strong> <span id="roomName"></span></p>
-            <p><strong>Участники:</strong> <span id="users">1</span></p>
-            
-            <button onclick="toggleMic()" id="micBtn">🎤 Вкл</button>
-            <button onclick="leaveRoom()" style="background:#dc3545;">Выйти</button>
-            
-            <p style="margin-top:20px;word-break:break-all;">
+<body style="text-align:center;padding-top:100px;background:#0f172a;color:white;">
+    <h1 style="color:#60a5fa;">🎤 Голосовой чат</h1>
+    <div style="background:#1e293b;padding:30px;border-radius:15px;max-width:400px;margin:0 auto;">
+        <input id="name" placeholder="Ваше имя" value="Я" style="padding:15px;width:80%;margin:10px;"><br>
+        <input id="room" placeholder="Название комнаты" value="друзья" style="padding:15px;width:80%;margin:10px;"><br>
+        <button onclick="start()" style="padding:15px 30px;background:#4CAF50;color:white;border:none;border-radius:8px;font-size:18px;margin:20px;">
+            Войти в комнату
+        </button>
+        <div id="chat" style="display:none;margin-top:30px;padding:20px;background:#334155;border-radius:10px;">
+            <div style="color:#4ade80;">✅ Вы в комнате!</div>
+            <div style="margin:15px 0;word-break:break-all;">
                 <strong>Ссылка для друга:</strong><br>
-                <span id="link"></span>
-            </p>
+                <span id="link" style="color:#cbd5e1;">...</span>
+            </div>
+            <button onclick="copyLink()" style="padding:10px;background:#2196F3;color:white;border:none;border-radius:5px;margin:5px;">
+                📋 Скопировать
+            </button>
         </div>
     </div>
-
     <script>
-        // Простейший голосовой чат
-        let localStream = null;
-        let isMuted = false;
-        
-        async function startChat() {
-            const name = document.getElementById('name').value || 'Гость';
-            const room = document.getElementById('room').value || 'комната';
-            
+        async function start() {
             try {
-                // Запрашиваем микрофон
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Показываем чат
+                const stream = await navigator.mediaDevices.getUserMedia({audio:true});
                 document.getElementById('chat').style.display = 'block';
-                document.getElementById('roomName').textContent = room;
-                document.getElementById('status').className = 'status online';
-                document.getElementById('status').textContent = '✅ Подключено';
-                
-                // Создаем ссылку
-                const link = window.location.href.split('?')[0] + '?room=' + encodeURIComponent(room);
+                const room = document.getElementById('room').value;
+                const link = window.location.href.split('?')[0] + '?room=' + room;
                 document.getElementById('link').textContent = link;
-                
-                // Простое уведомление о входе
-                alert('✅ Вы вошли в комнату!\n\nСкопируйте ссылку ниже и отправьте другу.\n\nКогда друг откроет ссылку, вы сможете общаться!');
-                
-            } catch(err) {
-                alert('❌ Ошибка: ' + err.message);
-                document.getElementById('status').className = 'status offline';
-                document.getElementById('status').textContent = '❌ Ошибка микрофона';
+                alert('✅ Микрофон работает!\nОтправьте ссылку другу.');
+            } catch(e) {
+                alert('❌ Ошибка: ' + e.message);
             }
         }
-        
-        function toggleMic() {
-            if (!localStream) return;
-            isMuted = !isMuted;
-            localStream.getAudioTracks()[0].enabled = !isMuted;
-            document.getElementById('micBtn').textContent = isMuted ? '🔇 Выкл' : '🎤 Вкл';
+        function copyLink() {
+            const link = document.getElementById('link').textContent;
+            navigator.clipboard.writeText(link);
+            alert('✅ Ссылка скопирована!');
         }
-        
-        function leaveRoom() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            document.getElementById('chat').style.display = 'none';
-            document.getElementById('status').className = 'status offline';
-            document.getElementById('status').textContent = 'Отключено';
+        // Автозаполнение комнаты
+        if(window.location.search.includes('room=')) {
+            document.getElementById('room').value = new URLSearchParams(window.location.search).get('room');
         }
-        
-        // При загрузке
-        window.onload = function() {
-            const params = new URLSearchParams(window.location.search);
-            const room = params.get('room');
-            if (room) {
-                document.getElementById('room').value = room;
-                // Можно автоматически запустить чат
-                // startChat();
-            }
-        };
     </script>
 </body>
 </html>
