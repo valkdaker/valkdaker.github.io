@@ -1,46 +1,935 @@
 <!DOCTYPE html>
-<html>
-<body style="text-align:center;padding-top:100px;background:#0f172a;color:white;">
-    <h1 style="color:#60a5fa;">🎤 Голосовой чат</h1>
-    <div style="background:#1e293b;padding:30px;border-radius:15px;max-width:400px;margin:0 auto;">
-        <input id="name" placeholder="Ваше имя" value="Я" style="padding:15px;width:80%;margin:10px;"><br>
-        <input id="room" placeholder="Название комнаты" value="друзья" style="padding:15px;width:80%;margin:10px;"><br>
-        <button onclick="start()" style="padding:15px 30px;background:#4CAF50;color:white;border:none;border-radius:8px;font-size:18px;margin:20px;">
-            Войти в комнату
-        </button>
-        <div id="chat" style="display:none;margin-top:30px;padding:20px;background:#334155;border-radius:10px;">
-            <div style="color:#4ade80;">✅ Вы в комнате!</div>
-            <div style="margin:15px 0;word-break:break-all;">
-                <strong>Ссылка для друга:</strong><br>
-                <span id="link" style="color:#cbd5e1;">...</span>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎤 Голосовой чат для друзей</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2980, #26d0ce);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 32px;
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .screen.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .input-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        input {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+        }
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.4);
+        }
+        button:active {
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 10px 20px rgba(33, 150, 243, 0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 10px 20px rgba(244, 67, 54, 0.4);
+        }
+        .status {
+            padding: 15px;
+            text-align: center;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: bold;
+            font-size: 16px;
+            border: 2px solid transparent;
+        }
+        .status-online {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4CAF50;
+            color: #c8e6c9;
+        }
+        .status-offline {
+            background: rgba(244, 67, 54, 0.2);
+            border-color: #f44336;
+            color: #ffcdd2;
+        }
+        .status-connecting {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: #ffc107;
+            color: #fff8e1;
+        }
+        .users-panel {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .users-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .users-list {
+            min-height: 120px;
+        }
+        .user-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 4px solid #4CAF50;
+            transition: all 0.3s;
+        }
+        .user-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .user-card.you {
+            border-left-color: #2196F3;
+            background: rgba(33, 150, 243, 0.1);
+        }
+        .user-card.talking {
+            border-left-color: #FF9800;
+            background: rgba(255, 152, 0, 0.1);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0); }
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        .control-btn {
+            padding: 15px;
+            border-radius: 10px;
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .control-btn:hover {
+            transform: translateY(-2px);
+        }
+        .mic-on {
+            background: linear-gradient(135deg, #4CAF50, #388E3C);
+            color: white;
+        }
+        .mic-off {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+        }
+        .link-box {
+            background: rgba(33, 150, 243, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            border: 1px solid rgba(33, 150, 243, 0.3);
+        }
+        .link-text {
+            word-break: break-all;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .audio-wave {
+            display: inline-flex;
+            align-items: flex-end;
+            height: 30px;
+            margin-left: 10px;
+        }
+        .audio-wave span {
+            display: inline-block;
+            width: 4px;
+            margin: 0 2px;
+            background: #4CAF50;
+            border-radius: 2px;
+            animation: audioWave 1.4s ease infinite;
+        }
+        .audio-wave span:nth-child(2) { animation-delay: 0.2s; }
+        .audio-wave span:nth-child(3) { animation-delay: 0.4s; }
+        .audio-wave span:nth-child(4) { animation-delay: 0.6s; }
+        .audio-wave span:nth-child(5) { animation-delay: 0.8s; }
+        @keyframes audioWave {
+            0%, 100% { height: 5px; }
+            50% { height: 20px; }
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+            display: none;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+        @media (max-width: 600px) {
+            .container { padding: 20px; }
+            .controls { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Экран подключения -->
+        <div id="connectScreen" class="screen active">
+            <h1>🎤 Голосовой чат для друзей</h1>
+            
+            <div class="input-group">
+                <label for="username">📛 Ваше имя:</label>
+                <input type="text" id="username" placeholder="Введите ваше имя" value="Друг">
             </div>
-            <button onclick="copyLink()" style="padding:10px;background:#2196F3;color:white;border:none;border-radius:5px;margin:5px;">
-                📋 Скопировать
+            
+            <div class="input-group">
+                <label for="roomId">🚪 Название комнаты:</label>
+                <input type="text" id="roomId" placeholder="Придумайте название комнаты" value="мой-чат">
+            </div>
+            
+            <button id="joinBtn" onclick="joinRoom()">
+                <span>✅ Войти в комнату</span>
+            </button>
+            
+            <div class="status status-offline" id="status">
+                Готов к подключению...
+            </div>
+            
+            <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px; margin-top: 30px; padding: 15px; background: rgba(0, 0, 0, 0.2); border-radius: 10px;">
+                💡 <strong>Как это работает:</strong><br>
+                1. Войдите в комнату → 2. Скопируйте ссылку → 3. Отправьте другу → 4. Общайтесь!
+            </div>
+        </div>
+
+        <!-- Экран чата -->
+        <div id="chatScreen" class="screen">
+            <h1>🎤 <span id="roomTitle">Комната</span></h1>
+            
+            <div class="users-panel">
+                <div class="users-header">
+                    <h3 style="color: white;">👥 Участники</h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #4CAF50;" id="userCount">1</div>
+                </div>
+                <div class="users-list" id="usersList">
+                    <!-- Список пользователей появится здесь -->
+                </div>
+            </div>
+            
+            <div class="status status-online" id="chatStatus">
+                <span id="connectionText">✅ Подключено к комнате</span>
+                <div class="audio-wave" id="audioWave" style="display: none;">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button id="micBtn" class="control-btn mic-on" onclick="toggleMicrophone()">
+                    <span>🎤</span>
+                    <span id="micText">Микрофон ВКЛ</span>
+                </button>
+                <button class="control-btn btn-secondary" onclick="copyInviteLink()">
+                    <span>📋</span>
+                    <span>Копировать ссылку</span>
+                </button>
+            </div>
+            
+            <div class="link-box">
+                <div style="font-weight: bold; color: #90CAF9; margin-bottom: 10px;">🔗 Ссылка для приглашения друзей:</div>
+                <div class="link-text" id="inviteLink">Загрузка...</div>
+                <button onclick="shareRoom()" style="width: 100%; margin-top: 10px;">
+                    <span>📤</span>
+                    <span>Поделиться комнатой</span>
+                </button>
+            </div>
+            
+            <button class="btn-danger" onclick="leaveRoom()">
+                <span>🚪</span>
+                <span>Покинуть комнату</span>
             </button>
         </div>
     </div>
+
+    <!-- Уведомления -->
+    <div class="notification" id="notification"></div>
+
     <script>
-        async function start() {
+        // ==================== КОНФИГУРАЦИЯ ====================
+        const PEERJS_CONFIG = {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
+            debug: 2,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
+                ]
+            }
+        };
+
+        // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
+        let localStream = null;
+        let peer = null;
+        let connections = new Map(); // Хранит активные соединения
+        let users = new Map(); // Хранит информацию о пользователях
+        let currentRoom = '';
+        let currentUser = '';
+        let isMuted = false;
+        let isSpeaking = false;
+        let audioContext = null;
+        let analyser = null;
+        let audioCheckInterval = null;
+
+        // ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
+
+        // Показать уведомление
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.background = type === 'error' ? '#f44336' : 
+                                          type === 'warning' ? '#ff9800' : '#4CAF50';
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // Обновить статус
+        function updateStatus(message, type = 'online') {
+            const statusEl = document.getElementById('status');
+            const chatStatusEl = document.getElementById('chatStatus');
+            const connectionText = document.getElementById('connectionText');
+            
+            statusEl.textContent = message;
+            chatStatusEl.textContent = message;
+            connectionText.textContent = message;
+            
+            statusEl.className = `status status-${type}`;
+            chatStatusEl.className = `status status-${type}`;
+        }
+
+        // Войти в комнату
+        async function joinRoom() {
+            currentUser = document.getElementById('username').value.trim() || 'Друг';
+            currentRoom = document.getElementById('roomId').value.trim().toLowerCase().replace(/\s+/g, '-') || 'мой-чат';
+            
+            if (!currentRoom) {
+                showNotification('Введите название комнаты!', 'error');
+                return;
+            }
+            
+            const joinBtn = document.getElementById('joinBtn');
+            joinBtn.disabled = true;
+            joinBtn.innerHTML = '<span>🔄 Подключение...</span>';
+            updateStatus('🔄 Подключение к микрофону...', 'connecting');
+            
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-                document.getElementById('chat').style.display = 'block';
-                const room = document.getElementById('room').value;
-                const link = window.location.href.split('?')[0] + '?room=' + room;
-                document.getElementById('link').textContent = link;
-                alert('✅ Микрофон работает!\nОтправьте ссылку другу.');
-            } catch(e) {
-                alert('❌ Ошибка: ' + e.message);
+                // 1. Запрашиваем доступ к микрофону
+                console.log('Запрашиваю доступ к микрофону...');
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        channelCount: 1
+                    }
+                });
+                
+                console.log('✅ Микрофон подключен успешно!');
+                showNotification('✅ Микрофон подключен!');
+                updateStatus('✅ Микрофон готов', 'online');
+                
+                // Настраиваем анализ аудио для визуализации
+                setupAudioAnalysis();
+                
+                // 2. Инициализируем PeerJS
+                await initializePeerJS();
+                
+                // 3. Переключаемся на экран чата
+                document.getElementById('connectScreen').classList.remove('active');
+                document.getElementById('chatScreen').classList.add('active');
+                document.getElementById('roomTitle').textContent = currentRoom;
+                
+                // 4. Генерируем ссылку для приглашения
+                const baseUrl = window.location.origin + window.location.pathname;
+                const inviteUrl = `${baseUrl}?room=${encodeURIComponent(currentRoom)}`;
+                document.getElementById('inviteLink').textContent = inviteUrl;
+                
+                // 5. Добавляем себя в список пользователей
+                addUser(peer.id, currentUser, true);
+                
+                updateStatus(`✅ Вы в комнате "${currentRoom}"`, 'online');
+                showNotification(`Вы вошли в комнату "${currentRoom}"`);
+                
+                // 6. Запускаем поиск других пользователей
+                setTimeout(() => discoverOtherUsers(), 1000);
+                
+            } catch (error) {
+                console.error('Ошибка подключения:', error);
+                joinBtn.disabled = false;
+                joinBtn.innerHTML = '<span>✅ Войти в комнату</span>';
+                
+                if (error.name === 'NotAllowedError') {
+                    const errorMsg = 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.';
+                    updateStatus('❌ Микрофон заблокирован', 'offline');
+                    showNotification(errorMsg, 'error');
+                    alert(`❌ ${errorMsg}\n\n1. Нажмите на 🔒 в адресной строке\n2. Выберите "Настройки сайта"\n3. Разрешите использование микрофона\n4. Перезагрузите страницу`);
+                } else if (error.name === 'NotFoundError') {
+                    updateStatus('❌ Микрофон не найден', 'offline');
+                    showNotification('Микрофон не найден. Проверьте подключение.', 'error');
+                } else if (error.name === 'NotReadableError') {
+                    updateStatus('❌ Ошибка доступа к микрофону', 'offline');
+                    showNotification('Микрофон используется другим приложением.', 'error');
+                } else {
+                    updateStatus(`❌ Ошибка: ${error.message}`, 'offline');
+                    showNotification(`Ошибка подключения: ${error.message}`, 'error');
+                }
             }
         }
-        function copyLink() {
-            const link = document.getElementById('link').textContent;
-            navigator.clipboard.writeText(link);
-            alert('✅ Ссылка скопирована!');
+
+        // Инициализация PeerJS
+        async function initializePeerJS() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Генерируем уникальный ID на основе комнаты и времени
+                    const peerId = `${currentRoom}-${currentUser}-${Date.now()}`.replace(/[^a-z0-9-]/gi, '');
+                    
+                    console.log('Инициализация PeerJS с ID:', peerId);
+                    updateStatus('🔄 Подключение к серверу PeerJS...', 'connecting');
+                    
+                    peer = new Peer(peerId, PEERJS_CONFIG);
+                    
+                    peer.on('open', (id) => {
+                        console.log('✅ PeerJS подключен, ID:', id);
+                        updateStatus('✅ Подключено к серверу PeerJS', 'online');
+                        showNotification('Сервер подключен');
+                        resolve();
+                    });
+                    
+                    peer.on('error', (error) => {
+                        console.error('PeerJS ошибка:', error);
+                        
+                        if (error.type === 'peer-unavailable') {
+                            // Это нормально - пользователь еще не подключился
+                            console.log('Пользователь недоступен (еще не подключился)');
+                        } else if (error.type === 'network') {
+                            updateStatus('❌ Проблемы с сетью', 'offline');
+                            showNotification('Проверьте подключение к интернету', 'error');
+                        } else if (error.type === 'server-error') {
+                            updateStatus('❌ Ошибка сервера', 'offline');
+                            showNotification('Проблема с сервером связи', 'error');
+                        } else {
+                            updateStatus(`❌ Ошибка PeerJS: ${error.type}`, 'offline');
+                        }
+                    });
+                    
+                    // Обработка входящих соединений
+                    peer.on('connection', (conn) => {
+                        console.log('📞 Входящее соединение от:', conn.peer);
+                        
+                        conn.on('open', () => {
+                            console.log('✅ Соединение установлено с:', conn.peer);
+                            
+                            // Обмениваемся информацией о пользователях
+                            conn.send({
+                                type: 'user-info',
+                                userId: peer.id,
+                                userName: currentUser,
+                                roomId: currentRoom
+                            });
+                            
+                            // Устанавливаем голосовое соединение
+                            establishVoiceConnection(conn.peer);
+                        });
+                        
+                        conn.on('data', (data) => {
+                            handlePeerData(conn.peer, data);
+                        });
+                        
+                        conn.on('close', () => {
+                            console.log('❌ Соединение закрыто:', conn.peer);
+                            removeUser(conn.peer);
+                        });
+                    });
+                    
+                    // Обработка входящих звонков
+                    peer.on('call', (call) => {
+                        console.log('📞 Входящий голосовой звонок от:', call.peer);
+                        
+                        // Отвечаем на звонок
+                        call.answer(localStream);
+                        
+                        call.on('stream', (remoteStream) => {
+                            console.log('✅ Получен аудиопоток от:', call.peer);
+                            handleRemoteStream(call.peer, remoteStream);
+                        });
+                        
+                        call.on('close', () => {
+                            console.log('❌ Звонок завершен:', call.peer);
+                            removeUser(call.peer);
+                        });
+                        
+                        call.on('error', (error) => {
+                            console.error('Ошибка звонка:', error);
+                        });
+                        
+                        connections.set(call.peer, call);
+                    });
+                    
+                } catch (error) {
+                    console.error('Ошибка инициализации PeerJS:', error);
+                    updateStatus('❌ Ошибка инициализации', 'offline');
+                    showNotification('Ошибка подключения к серверу', 'error');
+                    reject(error);
+                }
+            });
         }
-        // Автозаполнение комнаты
-        if(window.location.search.includes('room=')) {
-            document.getElementById('room').value = new URLSearchParams(window.location.search).get('room');
+
+        // Настройка анализа аудио
+        function setupAudioAnalysis() {
+            if (!window.AudioContext) return;
+            
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(localStream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+                analyser.smoothingTimeConstant = 0.8;
+                
+                // Запускаем проверку активности микрофона
+                audioCheckInterval = setInterval(checkAudioActivity, 200);
+                
+            } catch (error) {
+                console.warn('Анализ аудио недоступен:', error);
+            }
         }
-    </script>
-</body>
-</html>
+
+        // Проверка активности микрофона
+        function checkAudioActivity() {
+            if (!analyser || !audioContext) return;
+            
+            try {
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Вычисляем средний уровень звука
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / dataArray.length;
+                
+                // Определяем, говорит ли пользователь
+                const speaking = average > 10 && !isMuted;
+                
+                if (speaking !== isSpeaking) {
+                    isSpeaking = speaking;
+                    updateUserSpeakingStatus(peer.id, speaking);
+                    
+                    // Показываем/скрываем визуализацию волны
+                    const audioWave = document.getElementById('audioWave');
+                    if (speaking) {
+                        audioWave.style.display = 'inline-flex';
+                        updateStatus('🎤 Вы говорите...', 'online');
+                    } else {
+                        audioWave.style.display = 'none';
+                        updateStatus('✅ Подключено', 'online');
+                    }
+                }
+            } catch (error) {
+                console.warn('Ошибка анализа аудио:', error);
+            }
+        }
+
+        // Поиск других пользователей в комнате
+        function discoverOtherUsers() {
+            // PeerJS не имеет встроенного механизма поиска по комнатам,
+            // поэтому мы используем localStorage для эмуляции
+            const roomKey = `voicechat-room-${currentRoom}`;
+            const myInfo = {
+                peerId: peer.id,
+                userName: currentUser,
+                timestamp: Date.now()
+            };
+            
+            // Сохраняем информацию о себе
+            let roomUsers = JSON.parse(localStorage.getItem(roomKey)) || {};
+            roomUsers[peer.id] = myInfo;
+            localStorage.setItem(roomKey, JSON.stringify(roomUsers));
+            
+            // Ищем других пользователей
+            setInterval(() => {
+                try {
+                    const allUsers = JSON.parse(localStorage.getItem(roomKey)) || {};
+                    const now = Date.now();
+                    
+                    // Очищаем старые записи (больше 10 секунд)
+                    for (const userId in allUsers) {
+                        if (now - allUsers[userId].timestamp > 10000) {
+                            delete allUsers[userId];
+                        }
+                    }
+                    
+                    // Обновляем свою запись
+                    allUsers[peer.id] = myInfo;
+                    localStorage.setItem(roomKey, JSON.stringify(allUsers));
+                    
+                    // Подключаемся к другим пользователям
+                    for (const userId in allUsers) {
+                        if (userId !== peer.id && !connections.has(userId)) {
+                            console.log('Найден пользователь для подключения:', userId);
+                            connectToUser(userId, allUsers[userId].userName);
+                        }
+                    }
+                    
+                    // Удаляем отключившихся пользователей
+                    for (const [userId] of connections) {
+                        if (!allUsers[userId] && userId !== peer.id) {
+                            removeUser(userId);
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.warn('Ошибка поиска пользователей:', error);
+                }
+            }, 2000);
+        }
+
+        // Подключение к пользователю
+        function connectToUser(peerId, userName) {
+            if (connections.has(peerId) || !peer) return;
+            
+            console.log('Подключаюсь к пользователю:', peerId);
+            
+            try {
+                // Устанавливаем соединение для обмена данными
+                const conn = peer.connect(peerId, {
+                    reliable: true,
+                    serialization: 'json'
+                });
+                
+                conn.on('open', () => {
+                    console.log('✅ Соединение установлено с:', peerId);
+                    
+                    // Отправляем информацию о себе
+                    conn.send({
+                        type: 'user-info',
+                        userId: peer.id,
+                        userName: currentUser,
+                        roomId: currentRoom
+                    });
+                    
+                    // Устанавливаем голосовое соединение
+                    establishVoiceConnection(peerId);
+                });
+                
+                conn.on('data', (data) => {
+                    handlePeerData(peerId, data);
+                });
+                
+                conn.on('close', () => {
+                    console.log('❌ Соединение закрыто:', peerId);
+                    removeUser(peerId);
+                });
+                
+                conn.on('error', (error) => {
+                    console.error('Ошибка соединения:', error);
+                });
+                
+            } catch (error) {
+                console.error('Ошибка подключения к пользователю:', error);
+            }
+        }
+
+        // Установка голосового соединения
+        function establishVoiceConnection(targetPeerId) {
+            if (!localStream || connections.has(targetPeerId)) return;
+            
+            console.log('Устанавливаю голосовое соединение с:', targetPeerId);
+            
+            try {
+                const call = peer.call(targetPeerId, localStream);
+                
+                call.on('stream', (remoteStream) => {
+                    console.log('✅ Получен аудиопоток от:', targetPeerId);
+                    handleRemoteStream(targetPeerId, remoteStream);
+                });
+                
+                call.on('close', () => {
+                    console.log('❌ Голосовое соединение закрыто:', targetPeerId);
+                    removeUser(targetPeerId);
+                });
+                
+                call.on('error', (error) => {
+                    console.error('Ошибка голосового соединения:', error);
+                });
+                
+                connections.set(targetPeerId, call);
+                
+            } catch (error) {
+                console.error('Ошибка установки голосового соединения:', error);
+            }
+        }
+
+        // Обработка данных от других пиров
+        function handlePeerData(peerId, data) {
+            switch (data.type) {
+                case 'user-info':
+                    addUser(peerId, data.userName, false);
+                    break;
+                case 'speaking-status':
+                    updateUserSpeakingStatus(peerId, data.isSpeaking);
+                    break;
+            }
+        }
+
+        // Обработка удаленного аудиопотока
+        function handleRemoteStream(peerId, stream) {
+            try {
+                // Создаем скрытый аудиоэлемент для воспроизведения
+                const audio = new Audio();
+                audio.srcObject = stream;
+                audio.autoplay = true;
+                audio.volume = 1.0;
+                
+                // Сохраняем аудиоэлемент
+                if (users.has(peerId)) {
+                    const user = users.get(peerId);
+                    user.audioElement = audio;
+                    users.set(peerId, user);
+                }
+                
+                // Настраиваем анализ удаленного аудио
+                setupRemoteAudioAnalysis(peerId, stream);
+                
+                console.log('✅ Аудиопоток воспроизводится для:', peerId);
+                
+            } catch (error) {
+                console.error('Ошибка обработки удаленного потока:', error);
+            }
+        }
+
+        // Анализ удаленного аудио для определения активности говорящего
+        function setupRemoteAudioAnalysis(peerId, stream) {
+            if (!window.AudioContext) return;
+            
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+                
+                // Мониторим активность удаленного пользователя
+                setInterval(() => {
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    const average = sum / dataArray.length;
+                    
+                    // Если уровень звука выше порога - пользователь говорит
+                    updateUserSpeakingStatus(peerId, average > 5);
+                    
+                }, 500);
+                
+            } catch (error) {
+                console.warn('Ошибка анализа удаленного аудио:', error);
+            }
+        }
+
+        // Добавление пользователя в список
+        function addUser(peerId, userName, isYou = false) {
+            if (users.has(peerId)) return;
+            
+            console.log('Добавляю пользователя:', userName, peerId);
+            
+            users.set(peerId, {
+                id: peerId,
+                name: userName,
+                isYou: isYou,
+                isSpeaking: false,
+                audioElement: null
+            });
+            
+            updateUsersList();
+            showNotification(`${userName} ${isYou ? '(Вы)' : ''} подключился`);
+        }
+
+        // Обновление статуса "говорит/молчит"
+        function updateUserSpeakingStatus(peerId, isSpeaking) {
+            if (!users.has(peerId)) return;
+            
+            const user = users.get(peerId);
+            if (user.isSpeaking !== isSpeaking) {
+                user.isSpeaking = isSpeaking;
+                users.set(peerId, user);
+                updateUsersList();
+            }
+        }
+
+        // Удаление пользователя
+        function removeUser(peerId) {
+            if (!users.has(peerId)) return;
+            
+            const user = users.get(peerId);
+            console.log('Удаляю пользователя:', user.name);
+            
+            // Останавливаем аудиоэлемент
+            if (user.audioElement) {
+                user.audioElement.pause();
+                user.audioElement.srcObject = null;
+            }
+            
+            // Закрываем соединение
+            if (connections.has(peerId)) {
+                connections.get(peerId).close();
+                connections.delete(peerId);
+            }
+            
+            users.delete(peerId);
+            updateUsersList();
+            
+            if (!user.isYou) {
+                showNotification(`${user.name} отключился`);
+            }
+        }
+
+        // Обновление списка пользователей
+        function updateUsersList() {
+            const usersList = document.getElementById('usersList');
+            const userCount = document.getElementById('userCount');
+            
+            usersList.innerHTML = '';
+            
+            // Сортируем: сначала "Вы", затем другие
+            const sortedUsers = Array.from(users.values()).sort((a, b) => {
+                if (a.isYou && !b.isYou) return -1;
+                if (!a.isYou && b.isYou) return 1;
+                return a.name.localeCompare(b.name);
+            });
+            
+            sortedUsers.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = `user-card ${user.isYou ? 'you' : ''} ${user.isSpeaking ? 'talking' : ''}`;
+                userCard.id = `user-${user.id}`;
+                
+                userCard.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <
